@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>계산기</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .calculator {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 350px;
+        }
+
+        .statistics {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 500px;
+        }
+
+        .statistics h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .stats-info {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .chart-container {
+            margin-bottom: 30px;
+            position: relative;
+            height: 250px;
+        }
+
+        .display {
+            background: #f0f0f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: right;
+            font-size: 32px;
+            font-weight: bold;
+            min-height: 70px;
+            word-wrap: break-word;
+            color: #333;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        button {
+            padding: 20px;
+            font-size: 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .number, .operator, .decimal {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .number:hover, .operator:hover, .decimal:hover {
+            background: #e0e0e0;
+        }
+
+        .operator {
+            background: #ff9500;
+            color: white;
+        }
+
+        .operator:hover {
+            background: #e68600;
+        }
+
+        .equals {
+            background: #4CAF50;
+            color: white;
+            grid-column: span 2;
+        }
+
+        .equals:hover {
+            background: #45a049;
+        }
+
+        .clear {
+            background: #f44336;
+            color: white;
+            grid-column: span 2;
+        }
+
+        .clear:hover {
+            background: #da190b;
+        }
+
+        .zero {
+            grid-column: span 2;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="calculator">
+            <h1>계산기</h1>
+            <div class="display" id="display">0</div>
+            <div class="buttons">
+                <button class="clear" onclick="clearDisplay()">C</button>
+                <button class="operator" onclick="appendToDisplay('/')">/</button>
+                <button class="operator" onclick="appendToDisplay('*')">×</button>
+
+                <button class="number" onclick="appendToDisplay('7')">7</button>
+                <button class="number" onclick="appendToDisplay('8')">8</button>
+                <button class="number" onclick="appendToDisplay('9')">9</button>
+                <button class="operator" onclick="appendToDisplay('-')">-</button>
+
+                <button class="number" onclick="appendToDisplay('4')">4</button>
+                <button class="number" onclick="appendToDisplay('5')">5</button>
+                <button class="number" onclick="appendToDisplay('6')">6</button>
+                <button class="operator" onclick="appendToDisplay('+')">+</button>
+
+                <button class="number" onclick="appendToDisplay('1')">1</button>
+                <button class="number" onclick="appendToDisplay('2')">2</button>
+                <button class="number" onclick="appendToDisplay('3')">3</button>
+                <button class="equals" onclick="calculate()">=</button>
+
+                <button class="number zero" onclick="appendToDisplay('0')">0</button>
+                <button class="decimal" onclick="appendToDisplay('.')">.</button>
+            </div>
+        </div>
+
+        <div class="statistics">
+            <h2>사용 통계</h2>
+            <div class="stats-info">
+                <strong>총 계산 횟수:</strong> <span id="totalCalculations">0</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="numbersChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="operatorsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let displayValue = '0';
+        let numbersChart, operatorsChart;
+
+        function updateDisplay() {
+            document.getElementById('display').textContent = displayValue;
+        }
+
+        function appendToDisplay(value) {
+            if (displayValue === '0' && value !== '.') {
+                displayValue = value;
+            } else {
+                displayValue += value;
+            }
+            updateDisplay();
+        }
+
+        function clearDisplay() {
+            displayValue = '0';
+            updateDisplay();
+        }
+
+        async function calculate() {
+            try {
+                const response = await fetch('/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ expression: displayValue })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    displayValue = 'Error';
+                } else {
+                    displayValue = String(data.result);
+                }
+                updateDisplay();
+                updateStatistics();
+            } catch (error) {
+                displayValue = 'Error';
+                updateDisplay();
+            }
+        }
+
+        async function updateStatistics() {
+            try {
+                const response = await fetch('/statistics');
+                const stats = await response.json();
+
+                document.getElementById('totalCalculations').textContent = stats.calculations;
+
+                const numbersData = Object.entries(stats.numbers).sort((a, b) => a[0] - b[0]);
+                const numbersLabels = numbersData.map(item => item[0]);
+                const numbersValues = numbersData.map(item => item[1]);
+
+                const operatorSymbols = {
+                    '+': '+',
+                    '-': '-',
+                    '*': '×',
+                    '/': '÷'
+                };
+                const operatorsData = Object.entries(stats.operators);
+                const operatorsLabels = operatorsData.map(item => operatorSymbols[item[0]] || item[0]);
+                const operatorsValues = operatorsData.map(item => item[1]);
+
+                if (numbersChart) {
+                    numbersChart.data.labels = numbersLabels;
+                    numbersChart.data.datasets[0].data = numbersValues;
+                    numbersChart.update();
+                } else {
+                    const ctx1 = document.getElementById('numbersChart').getContext('2d');
+                    numbersChart = new Chart(ctx1, {
+                        type: 'bar',
+                        data: {
+                            labels: numbersLabels,
+                            datasets: [{
+                                label: '숫자 사용 횟수',
+                                data: numbersValues,
+                                backgroundColor: [
+                                    'rgba(255, 99, 132, 0.7)',
+                                    'rgba(54, 162, 235, 0.7)',
+                                    'rgba(255, 206, 86, 0.7)',
+                                    'rgba(75, 192, 192, 0.7)',
+                                    'rgba(153, 102, 255, 0.7)',
+                                    'rgba(255, 159, 64, 0.7)',
+                                    'rgba(199, 199, 199, 0.7)',
+                                    'rgba(83, 102, 255, 0.7)',
+                                    'rgba(255, 99, 255, 0.7)',
+                                    'rgba(99, 255, 132, 0.7)'
+                                ],
+                                borderColor: [
+                                    'rgba(255, 99, 132, 1)',
+                                    'rgba(54, 162, 235, 1)',
+                                    'rgba(255, 206, 86, 1)',
+                                    'rgba(75, 192, 192, 1)',
+                                    'rgba(153, 102, 255, 1)',
+                                    'rgba(255, 159, 64, 1)',
+                                    'rgba(199, 199, 199, 1)',
+                                    'rgba(83, 102, 255, 1)',
+                                    'rgba(255, 99, 255, 1)',
+                                    'rgba(99, 255, 132, 1)'
+                                ],
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (operatorsChart) {
+                    operatorsChart.data.labels = operatorsLabels;
+                    operatorsChart.data.datasets[0].data = operatorsValues;
+                    operatorsChart.update();
+                } else {
+                    const ctx2 = document.getElementById('operatorsChart').getContext('2d');
+                    operatorsChart = new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: {
+                            labels: operatorsLabels,
+                            datasets: [{
+                                label: '연산자 사용 횟수',
+                                data: operatorsValues,
+                                backgroundColor: [
+                                    'rgba(76, 175, 80, 0.7)',
+                                    'rgba(255, 152, 0, 0.7)',
+                                    'rgba(244, 67, 54, 0.7)',
+                                    'rgba(33, 150, 243, 0.7)'
+                                ],
+                                borderColor: [
+                                    'rgba(76, 175, 80, 1)',
+                                    'rgba(255, 152, 0, 1)',
+                                    'rgba(244, 67, 54, 1)',
+                                    'rgba(33, 150, 243, 1)'
+                                ],
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to update statistics:', error);
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key >= '0' && event.key <= '9') {
+                appendToDisplay(event.key);
+            } else if (event.key === '+' || event.key === '-' || event.key === '*' || event.key === '/') {
+                appendToDisplay(event.key);
+            } else if (event.key === 'Enter') {
+                calculate();
+            } else if (event.key === 'Escape' || event.key === 'c' || event.key === 'C') {
+                clearDisplay();
+            } else if (event.key === '.') {
+                appendToDisplay('.');
+            }
+        });
+
+        window.addEventListener('load', updateStatistics);
+    </script>
+</body>
+</html>
